@@ -1,0 +1,20 @@
+--- #YAML:1.0
+name: Bot-Babelfish
+version: 0.01
+author:
+  - |-
+    Sébastien Aperghis-Tramoni <sebastien@aperghis.net>
+abstract: |-
+  Provides Babelfish translation services via an IRC bot
+license: perl
+requires:
+  Bot::BasicBot: 0.5
+  Cache: 2.0
+  Carp: 0
+  Test::More: 0
+  WWW::Babelfish: 0.12
+provides:
+  Bot::Babelfish:
+    file: lib/Bot/Babelfish.pm
+    version: 0.01
+generated_by: Module::Build version 0.2607

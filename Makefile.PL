@@ -1,5 +1,6 @@
 use strict;
 use ExtUtils::MakeMaker;
+eval 'use ExtUtils::MakeMaker::Coverage';
 
 WriteMakefile(
     NAME                => 'Bot::Babelfish',
@@ -9,9 +10,10 @@ WriteMakefile(
     PL_FILES            => {},
     PREREQ_PM => {
         'Bot::BasicBot' => '0.5',
-        'Cache' => '2.0',
         'Carp' => '0',
-        'WWW::Babelfish' => '0.12',
+        'Encode' => '0',
+        'I18N::LangTags' => '0',
+        'Lingua::Translate' => '0',
         'Test::More' => 0,
     },
     dist                => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },

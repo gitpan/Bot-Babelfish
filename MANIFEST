@@ -4,8 +4,8 @@ MANIFEST
 META.yml
 Makefile.PL
 README
-eg/babelbot
 lib/Bot/Babelfish.pm
+script/babelbot
 t/00load.t
 t/00prereq.t
 t/01api.t

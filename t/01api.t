@@ -1,6 +1,5 @@
 use strict;
-use Test;
-BEGIN { plan tests => 8 }
+use Test::More tests => 8;
 use Bot::Babelfish;
 
 # check that the following functions are available
@@ -10,10 +9,10 @@ ok( defined \&Bot::Babelfish::said ); #02
 # create an object
 my $bot = undef;
 eval { $bot = new Bot::Babelfish };
-ok( $@, ''                         ); #03
+is( $@, ''                         ); #03
 ok( defined $bot                   ); #04
 ok( $bot->isa('Bot::Babelfish')    ); #05
-ok( ref $bot, 'Bot::Babelfish'     ); #06
+is( ref $bot, 'Bot::Babelfish'     ); #06
  
 # check that the following object methods are available
 ok( ref $bot->can('init')          ); #07

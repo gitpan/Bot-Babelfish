@@ -1,12 +1,14 @@
 package Bot::Babelfish;
 use strict;
 use Bot::BasicBot;
-use Cache::File;
 use Carp;
-use WWW::Babelfish;
+use Encode;
+use I18N::LangTags qw(is_language_tag);
+use I18N::LangTags::List;
+use Lingua::Translate;
 
 { no strict;
-  $VERSION = '0.01';
+  $VERSION = '0.02';
   @ISA = qw(Bot::BasicBot);
 }
 
@@ -16,18 +18,21 @@ Bot::Babelfish - Provides Babelfish translation services via an IRC bot
 
 =head1 VERSION
 
-Version 0.01
+Version 0.02
 
 =head1 SYNOPSIS
 
     use Bot::Babelfish;
 
-    my $bot = Bot::Babel->new();
-    ...
+    my $bot = Bot::Babel->new(
+        nick => 'babel',  name => 'Babelfish bot', 
+        server => 'irc.perl.org', channels => [ '#mychannel' ]
+    )->run
 
 =head1 DESCRIPTION
 
-XXX
+This module provides the backend for an IRC bot which can be used as an 
+interface for translation services using Babelfish. 
 
 =head1 METHODS
 
@@ -43,29 +48,9 @@ sub init {
     my $self = shift;
     
     $self->{babel} = {
-        service => undef, 
-        cache   => undef, 
-        langs   => {}, 
+        cache       => {}, 
     };
 
-    $self->{babel}{service} = new WWW::Babelfish service => 'Babelfish', 
-        agent => "Bot-Babelfish/$Bot::Babelfish::VERSION"
-      or croak "fatal: Can't create new WWW::Babelfish object" 
-      and return undef;
-    
-    $self->{babel}{cache} = new Cache::File cache_root => '/tmp/babel'
-      or croak "fatal: Can't create new Cache::File object" 
-      and return undef;
-    
-    my $langpairs = $self->{babel}{service}->languagepairs;
-    my %langs = ();
-    for my $src (keys %$langpairs) {
-        for my $dest (keys %{$langpairs->{$src}}) {
-            $langs{ $langpairs->{$src}{$dest} } = [ $src, $dest ]
-        }
-    }
-    $self->{babel}{langs} = { %langs };
-    
     return 1
 }
 
@@ -73,6 +58,7 @@ sub init {
 
 Main function for interacting with the bot object. 
 It follows the C<Bot::BasicBot> API and expect an hashref as argument. 
+See L<"COMMANDS"> for more information on recognized commands. 
 
 =cut
 
@@ -83,25 +69,122 @@ sub said {
     # don't do anything unless directly addressed
     return undef unless $args->{address} eq $self->nick or $args->{channel} eq 'msg';
 
-    my $lang_src = 'English';
-    my $lang_dest = 'French';
+    if($args->{body} =~ /^ *version/) {
+        $args->{body} = sprintf "%s IRC bot, using %s", $self->nick, join ', ', map {
+            $_ . ' ' . $_->VERSION
+        } qw(Bot::BasicBot Bot::Babelfish Encode Lingua::Translate POE POE::Component::IRC);
+        $self->say($args);
+        return undef;
+    }
 
-    $args->{body} =~ s/^ *(\w\w)[ 2>](\w\w): *// and 
-      ($lang_src,$lang_dest) = @{ $self->{babel}{langs}{"${1}_$2"} };
-    my $text = $args->{body};
+#  print STDERR $/, $args->{body}, $/;
+    ($args->{body} =~ s/^ *(\w\w) +(\w\w): *//);
+    my($from,$to) = ($1,$2);
+    $from ||= 'en';
+    $to   ||= 'fr';
+#  print STDERR " $from -> $to : ", $args->{body}, $/;
     
-    my $result = $self->{babel}{service}->translate(
-        source => $lang_src, destination => $lang_dest, text => $text
-    );
-    
-    $args->{body} = defined($result) ? 
-      qq|$lang_dest for "$text" is "$result"| : 
-      'error: '.$self->{babel}{service}->error;
+    unless(is_language_tag($from)) {
+        $args->{body} = "Unrecognized language tag '$from'";
+        $self->say($args);
+        return undef
+    }
 
+    unless(is_language_tag($to)) {
+        $args->{body} = "Unrecognized language tag '$to'";
+        $self->say($args);
+        return undef
+    }
+
+    my $from_to = "$from>$to";
+    my($from_lang,$to_lang) = map { I18N::LangTags::List::name($_) } $from, $to;
+
+    my $translator = new Lingua::Translate src => $from, dest => $to;
+    unless(defined $translator) {
+        $args->{body} = "Can't translate from $from_lang to $to_lang";
+        $self->say($args);
+        return undef
+    }
+
+    my $text = encode('utf-8', decode('iso-8859-1', $args->{body}));
+    my $result = $self->{babel}{cache}{$from_to}{$text};
+
+    unless($result) {
+        eval { $result = decode('utf-8', $translator->translate($text)) };
+        $self->{babel}{cache}{$from_to}{$text} = $result unless $@;
+    }
+#  print STDERR " ($@) result = $result\n";
+    $text = non_unicode_version(decode('utf-8', $text));
+    $result = non_unicode_version($result);
+
+    $args->{body} = defined($result) ? qq|$to_lang for "$text" => "$result"| : "error: $@";
     $self->say($args);
     
-    return undef
+    return $args
 }
+
+=item help()
+
+Prints usage.
+
+=cut
+
+sub help {
+    return "usage: babel: from to: text to translate\n".
+           "  where 'from' and 'to' are two-letters codes of source and destination languages\n".
+           "  see http://babelfish.altavista.com/ for the list of supported languages.\n".
+           "  example:    babel: fr en: ceci n'est pas une pipe"
+}
+
+=item non_unicode_version()
+
+This function returns a printable version of the given string 
+(with a European value of "printable" C<:-)>. More precisely, 
+if the string only contains Latin-1 characters, it is returned 
+decoded from internal Perl format. If the string contains 
+others characters outside Latin-1, it's converted using 
+C<Text::Unidecode>. 
+
+=cut
+
+sub non_unicode_version {
+    my $text = shift;
+    my $wide = 0;
+    print unidecode($text),$/;
+    ord($_) > 255 and print "($_)" and $wide++ for split //, $text;
+    return $wide ? unidecode($text) : encode('iso-8859-1', $text)
+}
+
+=back
+
+
+=head1 COMMANDS
+
+=over 4
+
+=item translation
+
+    babel from to: some text to translate
+
+Where C<from> and C<to> are ISO-639 two-letters codes representing the languages. 
+See L<http://babelfish.altavista.com/> for the list of supported languages. 
+
+B<Examples>
+
+    babel: fr en: ceci n'est pas une pipe
+    <babel> English for "ceci n'est pas une pipe" => "this is not a pipe"
+
+=item help
+
+    babel help
+
+Shows how to use this bot. 
+
+=item version
+
+    babel version
+
+Prints the version of this module and its dependencies. 
 
 =back
 
@@ -118,7 +201,7 @@ a new object of the given class.
 
 =head1 SEE ALSO
 
-L<Bot::BasicBot>
+L<Bot::BasicBot>, L<Text::Unidecode>
 
 =head1 AUTHOR
 
@@ -134,7 +217,7 @@ of progress on your bug as I make changes.
 
 =head1 COPYRIGHT & LICENSE
 
-Copyright 2005 SE<eacute>ébastien Aperghis-Tramoni, All Rights Reserved.
+Copyright 2005 SE<eacute>bastien Aperghis-Tramoni, All Rights Reserved.
 
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.

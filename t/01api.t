@@ -3,8 +3,8 @@ use Test::More tests => 8;
 use Bot::Babelfish;
 
 # check that the following functions are available
-ok( defined \&Bot::Babelfish::init ); #01
-ok( defined \&Bot::Babelfish::said ); #02
+ok( exists &Bot::Babelfish::init   ); #01
+ok( exists &Bot::Babelfish::said   ); #02
 
 # create an object
 my $bot = undef;

@@ -6,9 +6,10 @@ use Encode;
 use I18N::LangTags qw(is_language_tag);
 use I18N::LangTags::List;
 use Lingua::Translate;
+use Text::Unidecode;
 
 { no strict;
-  $VERSION = '0.02';
+  $VERSION = '0.03';
   @ISA = qw(Bot::BasicBot);
 }
 
@@ -18,7 +19,7 @@ Bot::Babelfish - Provides Babelfish translation services via an IRC bot
 
 =head1 VERSION
 
-Version 0.02
+Version 0.03
 
 =head1 SYNOPSIS
 
@@ -68,6 +69,9 @@ sub said {
 
     # don't do anything unless directly addressed
     return undef unless $args->{address} eq $self->nick or $args->{channel} eq 'msg';
+    return if $self->ignore_nick($args->{who});
+    return if index($args->{body}, '++') == 0;
+    return if index($args->{body}, '--') == 0;
 
     if($args->{body} =~ /^ *version/) {
         $args->{body} = sprintf "%s IRC bot, using %s", $self->nick, join ', ', map {
@@ -77,12 +81,12 @@ sub said {
         return undef;
     }
 
-#  print STDERR $/, $args->{body}, $/;
+    #print STDERR $/, $args->{body}, $/;
     ($args->{body} =~ s/^ *(\w\w) +(\w\w): *//);
     my($from,$to) = ($1,$2);
     $from ||= 'en';
     $to   ||= 'fr';
-#  print STDERR " $from -> $to : ", $args->{body}, $/;
+    #print STDERR " $from -> $to : ", $args->{body}, $/;
     
     unless(is_language_tag($from)) {
         $args->{body} = "Unrecognized language tag '$from'";
@@ -113,7 +117,8 @@ sub said {
         eval { $result = decode('utf-8', $translator->translate($text)) };
         $self->{babel}{cache}{$from_to}{$text} = $result unless $@;
     }
-#  print STDERR " ($@) result = $result\n";
+    #print STDERR " ($@) result = $result\n";
+
     $text = non_unicode_version(decode('utf-8', $text));
     $result = non_unicode_version($result);
 
@@ -150,8 +155,7 @@ C<Text::Unidecode>.
 sub non_unicode_version {
     my $text = shift;
     my $wide = 0;
-    print unidecode($text),$/;
-    ord($_) > 255 and print "($_)" and $wide++ for split //, $text;
+    ord($_) > 255 and $wide++ for split //, $text;
     return $wide ? unidecode($text) : encode('iso-8859-1', $text)
 }
 
@@ -210,8 +214,8 @@ SE<eacute>bastien Aperghis-Tramoni, E<lt>sebastien@aperghis.netE<gt>
 =head1 BUGS
 
 Please report any bugs or feature requests to 
-L<bug-bot-babel@rt.cpan.org>, or through the web interface at 
-L<https://rt.cpan.org/NoAuth/ReportBug.html?Queue=Bot-Babelfish>. 
+C<bug-bot-babel@rt.cpan.org>, or through the web interface at 
+L<https://rt.cpan.org/NoAuth/Bugs.html?Dist=Bot-Babelfish>. 
 I will be notified, and then you'll automatically be notified 
 of progress on your bug as I make changes.
 

@@ -12,6 +12,8 @@ my $builder = Module::Build->new(
         'Encode' => '0',
         'I18N::LangTags' => '0',
         'Lingua::Translate' => '0',
+    },
+    build_requires => {
         'Test::More' => 0,
     },
     add_to_cleanup      => [ 'Bot-Babelfish-*' ],

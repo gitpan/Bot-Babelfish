@@ -4,6 +4,7 @@ eval 'use ExtUtils::MakeMaker::Coverage';
 
 WriteMakefile(
     NAME                => 'Bot::Babelfish',
+    LICENSE             => 'perl',
     AUTHOR              => 'Sébastien Aperghis-Tramoni <sebastien@aperghis.net>',
     VERSION_FROM        => 'lib/Bot/Babelfish.pm',
     ABSTRACT_FROM       => 'lib/Bot/Babelfish.pm',

@@ -3,11 +3,12 @@ use strict;
 use Bot::Babelfish;
 
 Bot::Babelfish->new(
-        nick => 'babel', 
+        nick => 'babel2', 
         name => 'Babelfish bot', 
         server => 'irc.perl.org', 
         channels => [qw(#babel)], 
-	ignore_list => [qw(dipsy purl)], 
+        ignore_list => [qw(dipsy purl)], 
+        debug => 1,
     )->run
 
 __END__
@@ -32,7 +33,7 @@ commands.
 =head1 DESCRIPTION
 
 This script is an IRC bot that provides an interface to the module
-C<Acme::MetaSyntactic>.
+C<Lingua::Translate>.
 
 See also L<Bot::Babelfish> for more information.
 

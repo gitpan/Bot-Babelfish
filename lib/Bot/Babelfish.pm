@@ -3,13 +3,13 @@ use strict;
 use Bot::BasicBot;
 use Carp;
 use Encode;
-use I18N::LangTags qw(is_language_tag);
+use I18N::LangTags qw(extract_language_tags is_language_tag);
 use I18N::LangTags::List;
 use Lingua::Translate;
 use Text::Unidecode;
 
 { no strict;
-  $VERSION = '0.03';
+  $VERSION = '0.04';
   @ISA = qw(Bot::BasicBot);
 }
 
@@ -19,7 +19,7 @@ Bot::Babelfish - Provides Babelfish translation services via an IRC bot
 
 =head1 VERSION
 
-Version 0.03
+Version 0.04
 
 =head1 SYNOPSIS
 
@@ -70,24 +70,27 @@ sub said {
     # don't do anything unless directly addressed
     return undef unless $args->{address} eq $self->nick or $args->{channel} eq 'msg';
     return if $self->ignore_nick($args->{who});
+
+    # ignore karma
     return if index($args->{body}, '++') == 0;
     return if index($args->{body}, '--') == 0;
 
     if($args->{body} =~ /^ *version/) {
-        $args->{body} = sprintf "%s IRC bot, using %s", $self->nick, join ', ', map {
-            $_ . ' ' . $_->VERSION
-        } qw(Bot::BasicBot Bot::Babelfish Encode Lingua::Translate POE POE::Component::IRC);
+        $args->{body} = sprintf "%s IRC bot, using %s", $self->nick, 
+            join ', ', map { $_ . ' ' . $_->VERSION } qw(
+                Bot::BasicBot  Bot::Babelfish  Encode  Lingua::Translate 
+                POE  POE::Component::IRC
+            );
         $self->say($args);
         return undef;
     }
 
     #print STDERR $/, $args->{body}, $/;
-    ($args->{body} =~ s/^ *(\w\w) +(\w\w): *//);
-    my($from,$to) = ($1,$2);
+    my ($from, $to) = extract_language_tags($args->{body} );
     $from ||= 'en';
     $to   ||= 'fr';
     #print STDERR " $from -> $to : ", $args->{body}, $/;
-    
+
     unless(is_language_tag($from)) {
         $args->{body} = "Unrecognized language tag '$from'";
         $self->say($args);
